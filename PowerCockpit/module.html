@@ -1,0 +1,160 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}body{font-family:Arial,Helvetica,sans-serif;color:var(--content-color,#30343a);font-size:14px}
+[hidden]{display:none!important}#cockpit{--fit-scale:1;position:relative;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:40px 12px 10px;background:transparent}.hint{opacity:.65;font-size:11px;flex:none}.hint:empty{display:none}
+.panel-head{display:flex;flex:none;align-items:center;justify-content:center;gap:12px;height:44px;margin-bottom:4px}.panel-title{font-size:24px;line-height:32px;font-weight:400;text-align:center;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.panel-count{font-size:14px;opacity:.65;margin-left:.6em}.chevron{border:0;background:transparent;color:inherit;padding:5px 12px;cursor:pointer;touch-action:manipulation;font:inherit;line-height:1}.chevron svg{width:18px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:2}.chevron:focus-visible{outline:1px solid currentColor}
+#fit{position:relative;flex:1;min-height:0;min-width:0;overflow:hidden}#canvas{position:relative;width:100%;height:100%;overflow:hidden}#stage{position:absolute;left:0;top:0;transform-origin:0 0}#power-area{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none}.panel-head{touch-action:pan-y;user-select:none;-webkit-user-select:none}#power-area.swiping{cursor:grabbing}.power-page{position:absolute;left:0;top:0;width:100%;visibility:hidden;pointer-events:none}.power-page.active{visibility:visible;pointer-events:auto}.power-page:not(.active) *{visibility:hidden!important}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.7fr);align-items:center;gap:12px}.layout.no-total,.layout.only-total{grid-template-columns:1fr}#stage.portrait .layout{grid-template-columns:1fr;gap:4px}.total{width:100%;margin:auto}.total:empty{display:none}
+.phases,.phase-names{display:grid;grid-template-columns:repeat(var(--phase-count,3),minmax(0,1fr));gap:8px}.phase{min-width:0;text-align:center}.phase-names{font-size:calc(20px / var(--fit-scale));line-height:calc(28px / var(--fit-scale));height:calc(28px / var(--fit-scale));text-align:center;white-space:nowrap}.section-heading{font-size:calc(24px / var(--fit-scale));line-height:calc(34px / var(--fit-scale));height:calc(34px / var(--fit-scale));font-weight:400;text-align:center;margin:0}.phase-group{min-width:0}#voltage-group{margin-top:0}.group-separated{position:relative;margin-top:calc(14px / var(--fit-scale))!important;padding-top:calc(10px / var(--fit-scale))}.group-separated:before{content:'';position:absolute;left:0;right:0;top:0;border-top:calc(1px / var(--fit-scale)) solid currentColor;opacity:.2;pointer-events:none}.total>.instrument{margin:0 auto}
+.gauge{display:block;width:100%;min-width:0;border:0;background:none;padding:0;color:inherit;position:relative;font:inherit;cursor:default}.gauge[data-target]:not([data-target="1"]){cursor:pointer}.gauge:focus-visible{outline:1px solid var(--accent-color,currentColor);outline-offset:-1px}.gauge svg{display:block;width:100%;height:auto;overflow:visible}.instrument{min-width:0;container-type:inline-size}.instrument:empty{display:none}
+.stats{display:flex;flex-wrap:wrap;justify-content:center;gap:.2em .7em;font-size:max(16px,5.5cqi);line-height:1.25;padding:0 .1em .4em;font-variant-numeric:tabular-nums}.stats:empty{display:none}.stats span{white-space:nowrap}.stats em{font-style:normal;opacity:.8;margin-right:.25em}.current{font-size:13px;margin:4px 0 10px;font-variant-numeric:tabular-nums}.current:empty{display:none}.current small{opacity:.6;font-size:11px}.note{font-size:10px;opacity:.7;line-height:14px}.note:empty{display:none}
+.stat-marker{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;pointer-events:none}.needle{transition:transform .55s ease-out;transform-origin:150px 145px;transform-box:view-box}.stale .needle{opacity:.4}.stale .reading{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:5px}.ticks{stroke:currentColor;opacity:.65;stroke-width:1.5}.tick-label{fill:currentColor;opacity:.8;font-size:14px;text-anchor:middle}.reading{font-size:44px;font-weight:500;text-anchor:middle;font-variant-numeric:tabular-nums}.reading .unit{font-size:25px}.instrument-title{fill:currentColor;opacity:.7;font-size:14px;text-anchor:middle}#error{padding:44px 20px 20px;line-height:1.5}.panel-empty{text-align:center;font-size:13px;padding:16px;opacity:.7}
+@media(prefers-reduced-motion:reduce){.stat-marker{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;pointer-events:none}.needle{transition:none}}
+</style></head><body><div id="error" hidden></div><main id="cockpit"><div class="hint" id="summary"></div><div class="panel-head" id="panel-head" hidden></div><div id="fit"><div id="canvas"><div id="stage"><section id="power-area" aria-label="Leistungspanels"></section><section id="voltage-group" class="phase-group" aria-label="Spannungen" hidden><h2 class="section-heading">Spannungen</h2><div class="phase-names" id="voltage-names"></div><div id="voltages" class="phases"></div></section></div></div></div></main><script>
+'use strict';
+let state=null,clockOffset=0,activeId=null,activeIndex=0,suppressClickUntil=0,drag=null;
+const root=document.getElementById('cockpit'),powerArea=document.getElementById('power-area'),panelHead=document.getElementById('panel-head');
+function panel(){return state?.panels[activeIndex]||null;}
+function phases(){return ['A','B','C'].slice(0,state.config.phases);}
+function sourceFor(button){return button.dataset.key.startsWith('Voltage')?{data:state.voltage,zones:state.config.zones}:state.panels.find(p=>p.id===button.dataset.panel);}
+function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
+function scale(value,max,log){if(!log)return value;const x=Math.abs(value);return Math.sign(value)*(x<=100?x/100:1+Math.log10(x/100));}
+function position(value,zones,log){const min=zones[0].from,max=zones[zones.length-1].to;const a=scale(min,max,log),b=scale(max,max,log);return Math.max(0,Math.min(1,(scale(value,max,log)-a)/(b-a)));}
+function polar(p,r=112){const a=(-180+p*180)*Math.PI/180;return [150+Math.cos(a)*r,145+Math.sin(a)*r];}
+function arc(a,b){const s=polar(a),e=polar(b);return `M ${s[0]} ${s[1]} A 112 112 0 0 1 ${e[0]} ${e[1]}`;}
+function colour(value,zones){return zones.find(z=>value<z.to)?.color||zones[zones.length-1].color;}
+function format(value,unit,short=false){if(value===null||!Number.isFinite(value))return '–';let v=value,u=unit;if(unit==='W'&&Math.abs(v)>=1000){v/=1000;u='kW';}const digits=short?0:(u==='kW'?2:u==='A'||u==='V'?1:0);return v.toLocaleString('de-CH',{maximumFractionDigits:digits,minimumFractionDigits:short?0:digits})+(short?(u==='kW'?'k':''): ' '+u);}
+function svgNode(tag,attrs,text){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n;}
+function ticks(zones,log){if(!log)return [];const min=zones[0].from,max=zones.at(-1).to;if(min<0)return [-1000000,-100000,-10000,-1000,0,1000,10000,100000,1000000].filter(x=>x>min&&x<max);return [100,1000,10000,100000,1000000].filter(x=>x>min&&x<max);}
+function setReading(node,value,unit){const formatted=format(value,unit),split=formatted.lastIndexOf(' ');node.replaceChildren();if(split<0){node.textContent=formatted;return;}node.append(document.createTextNode(formatted.slice(0,split)),svgNode('tspan',{class:'unit',dx:5},formatted.slice(split+1)));}
+function makeGauge(key,label,type,unit,source){const box=el('div','instrument'),d=source.data[key],zones=type==='Voltage'?state.config.zones.Voltage:source.zones[type],log=unit==='W';if(!d.assigned)return box;
+const button=el('button','gauge');button.type='button';button.dataset.key=key;button.dataset.panel=source.id||'';button.dataset.target=d.target||0;button.setAttribute('aria-label',label);button.onclick=e=>{e.stopPropagation();if(Date.now()>=suppressClickUntil)navigate(d.target);};
+const svg=svgNode('svg',{viewBox:'0 -8 300 164',role:'img','aria-label':label});
+for(const z of zones)svg.append(svgNode('path',{d:arc(position(z.from,zones,log),position(z.to,zones,log)),fill:'none',stroke:z.color,'stroke-width':24}));
+for(const t of ticks(zones,log)){const p=position(t,zones,log),a=polar(p,125),b=polar(p,129),c=polar(p,138);svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],class:'ticks'}));svg.append(svgNode('text',{x:0,y:0,transform:`translate(${c[0]} ${c[1]}) rotate(${-90+180*p})`,'dominant-baseline':'middle',class:'tick-label'},Math.abs(t)<1000?`${t} W`:`${t/1000} kW`));}
+const markers=svgNode('g',{class:'stat-markers','aria-hidden':'true'});svg.append(markers);
+const needle=svgNode('g',{class:'needle'});needle.append(svgNode('path',{d:'M 150 20 L 144 54 L 156 54 Z',fill:'currentColor'}));svg.append(needle,svgNode('text',{x:150,y:137,class:'reading'}));button.append(svg);box.append(button,el('div','note'),el('div','stats'));return box;}
+
+// Statistics remain at their exact scale position. Separate radial tracks keep
+// coincident extrema/average distinguishable without suggesting different values.
+function updateMarkers(button,d,zones,log,unit){
+ const host=button.querySelector('.stat-markers');host.replaceChildren();
+ const entries=['Min','Max','Avg'].filter(k=>d[k]?.assigned&&Number.isFinite(d[k].value));
+ const points=entries.map(k=>({key:k,value:d[k].value,p:position(d[k].value,zones,log)}));
+ const close=(a,b)=>Math.abs(a.p-b.p)<.035;
+ const tracks=new Map();
+ for(const entry of points){const used=new Set(points.filter(other=>tracks.has(other.key)&&close(entry,other)).map(other=>tracks.get(other.key)));let track=0;while(used.has(track))track++;tracks.set(entry.key,track);}
+ for(const entry of points){
+  const track=tracks.get(entry.key),r=123-track*8,angle=-90+180*entry.p;
+  // Minimum and maximum use opposing triangles, average a hollow diamond.
+  const path=entry.key==='Avg'?`M 150 ${145-r} L 154 ${149-r} L 150 ${153-r} L 146 ${149-r} Z`:
+   entry.key==='Min'?`M 150 ${153-r} L 146 ${145-r} L 154 ${145-r} Z`:
+   `M 150 ${145-r} L 146 ${153-r} L 154 ${153-r} Z`;
+  const n=svgNode('path',{class:'stat-marker',d:path,transform:`rotate(${angle} 150 145)`,'data-stat':entry.key});
+  const label={Min:'Minimum',Max:'Maximum',Avg:'Durchschnitt'}[entry.key],outside=entry.value<zones[0].from?' · Unter Skala':entry.value>zones.at(-1).to?' · Über Skala':'';
+  n.append(svgNode('title',{},`${label}: ${format(entry.value,unit)}${outside}`));host.append(n);
+ }
+}
+
+function navigate(target){if(Number.isInteger(target)&&target!==1&&target>=0&&typeof openObject==='function')openObject(target);}
+function phaseNames(container){container.replaceChildren(...phases().map(p=>el('span','',`Phase ${p}`)));}
+function build(){
+ root.style.setProperty('--phase-count',state.config.phases);
+ const voltages=document.getElementById('voltages');voltages.replaceChildren();phaseNames(document.getElementById('voltage-names'));
+ for(const p of (state.config.showVoltage===false?[]:phases())){const col=el('section','phase');col.append(makeGauge('Voltage'+p,'Spannung Phase '+p,'Voltage','V',{id:'',data:state.voltage}));voltages.append(col);}
+ document.getElementById('voltage-group').hidden=state.config.showVoltage===false||!Object.values(state.voltage).some(d=>d.assigned);
+ powerArea.replaceChildren();
+ for(const source of state.panels){
+  const page=el('section','power-page');page.dataset.panel=source.id;
+  const layout=el('div','layout'),total=el('div','total'),hasTotal=source.showTotal!==false&&source.data.TotalPower.assigned;
+  if(hasTotal)total.append(el('h2','section-heading','Gesamtleistung'),makeGauge('TotalPower','Gesamtleistung','Total','W',source));
+  const group=el('section','phase-group power-group');group.classList.toggle('group-separated',hasTotal);group.setAttribute('aria-label','Phasenleistungen');group.append(el('h2','section-heading','Phasenleistungen'));
+  const names=el('div','phase-names');phaseNames(names);group.append(names);
+  const columns=el('div','phases power-phases');
+  for(const p of (source.showPhase===false?[]:phases())){const col=el('section','phase');col.dataset.phase=p;col.append(makeGauge('Power'+p,'Leistung Phase '+p,'Phase','W',source),el('div','current'));columns.append(col);}
+  group.append(columns);group.hidden=source.showPhase===false||!phases().some(p=>source.data['Power'+p].assigned||source.data['Current'+p].assigned);
+  page.dataset.layout=String(Number(hasTotal))+String(Number(!group.hidden));
+  layout.classList.toggle('no-total',!hasTotal);layout.classList.toggle('only-total',group.hidden);
+  layout.append(total,group);page.append(layout);
+  if(!hasTotal&&group.hidden&&source.showTotal!==false&&source.showPhase!==false)page.append(el('div','panel-empty','Bitte Leistungsvariablen für dieses Panel zuweisen.'));
+  powerArea.append(page);
+ }
+ powerArea.hidden=!state.panels.length;
+ renderSelection();layoutCache.clear();
+}
+function renderSelection(){
+ const current=panel();for(const page of powerArea.querySelectorAll('.power-page')){const active=page.dataset.panel===current?.id;page.classList.toggle('active',active);page.setAttribute('aria-hidden',String(!active));page.inert=!active;}
+ document.getElementById('voltage-group').classList.toggle('group-separated',!!powerArea.querySelector('.power-page.active[data-layout]:not([data-layout="00"])'));
+ panelHead.replaceChildren();panelHead.hidden=!current;
+ if(!current)return;
+ const title=current.name.trim()||(state.panels.length>1?`Panel ${activeIndex+1}`:'');
+ panelHead.hidden=!title&&state.panels.length<2;
+ if(state.panels.length>1)panelHead.append(chevron(-1));
+ if(title){const name=el('div','panel-title',title);name.title=title;if(state.panels.length>1)name.append(el('span','panel-count',`${activeIndex+1} / ${state.panels.length}`));panelHead.append(name);}
+ if(state.panels.length>1)panelHead.append(chevron(1));
+}
+function chevron(direction){const b=el('button','chevron');b.type='button';b.setAttribute('aria-label',direction<0?'Vorheriges Panel':'Nächstes Panel');const svg=svgNode('svg',{viewBox:'0 0 18 24','aria-hidden':'true'});svg.append(svgNode('path',{d:direction<0?'M 13 3 L 4 12 L 13 21':'M 5 3 L 14 12 L 5 21'}));b.append(svg);b.onclick=e=>{e.stopPropagation();if(Date.now()>=suppressClickUntil)changePanel(direction);};return b;}
+function changePanel(direction){if(!state||state.panels.length<2)return;activeIndex=(activeIndex+direction+state.panels.length)%state.panels.length;activeId=panel().id;renderSelection();update();}
+for(const host of [powerArea,panelHead]){
+ host.addEventListener('click',e=>{if(Date.now()<suppressClickUntil){e.preventDefault();e.stopPropagation();return;}if(!e.target.closest('button'))navigate(panel()?.target);});
+ host.addEventListener('pointerdown',e=>{if(!state||state.panels.length<2||!e.isPrimary||e.button!==0||e.target.closest('.chevron'))return;drag={id:e.pointerId,x:e.clientX,y:e.clientY,swiping:false};});
+ host.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.swiping&&Math.abs(dy)>12&&Math.abs(dy)>Math.abs(dx)){drag=null;return;}if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)*1.3){drag.swiping=true;powerArea.classList.add('swiping');powerArea.setPointerCapture?.(e.pointerId);e.preventDefault();}});
+ host.addEventListener('pointercancel',e=>finishDrag(e,true));host.addEventListener('dragstart',e=>e.preventDefault());
+}
+function finishDrag(e,cancelled=false){if(!drag||drag.id!==e.pointerId)return;const d=drag;drag=null;powerArea.classList.remove('swiping');if(powerArea.hasPointerCapture?.(e.pointerId))powerArea.releasePointerCapture(e.pointerId);if(d.swiping){suppressClickUntil=Date.now()+500;if(!cancelled&&Math.abs(e.clientX-d.x)>=40&&Math.abs(e.clientX-d.x)>Math.abs(e.clientY-d.y)*1.3)changePanel(e.clientX<d.x?1:-1);}fitLayout();}
+window.addEventListener('pointerup',e=>finishDrag(e));
+powerArea.addEventListener('lostpointercapture',e=>{if(e.target===powerArea&&!powerArea.hasPointerCapture?.(e.pointerId)&&drag?.id===e.pointerId){drag=null;powerArea.classList.remove('swiping');suppressClickUntil=Date.now()+500;}});
+function update(){if(!state?.config)return;let staleCount=0;const now=Date.now()/1000+clockOffset;
+ for(const b of root.querySelectorAll('.gauge')){
+  const key=b.dataset.key,source=sourceFor(b),d=source.data[key],unit=key.startsWith('Voltage')?'V':'W',type=unit==='V'?'Voltage':key==='TotalPower'?'Total':'Phase',zones=source.zones[type],valid=d.value!==null,stale=valid&&state.config.timeout>0&&now-d.updated>state.config.timeout;
+  const visible=key.startsWith('Voltage')||source.id===panel()?.id;if(stale&&visible)staleCount++;
+  const text=format(d.value,unit);setReading(b.querySelector('.reading'),d.value,unit);b.querySelector('.reading').setAttribute('fill','currentColor');b.classList.toggle('stale',stale);
+  const needle=b.querySelector('.needle');needle.style.visibility=valid?'visible':'hidden';needle.style.transform=`rotate(${-90+180*position(valid?d.value:zones[0].from,zones,unit==='W')}deg)`;
+  const outside=valid&&(d.value<zones[0].from?'Unter Skala':d.value>zones.at(-1).to?'Über Skala':'');b.parentNode.querySelector('.note').textContent=[stale?'Nicht aktuell':'',outside].filter(Boolean).join(' · ');b.setAttribute('aria-label',`${key}: ${text}${stale?', nicht aktuell':''}${outside?', '+outside:''}`);
+  updateMarkers(b,d,zones,unit==='W',unit);
+  const stats=b.parentNode.querySelector('.stats');stats.replaceChildren();for(const [s,label]of [['Min','↓'],['Max','↑'],['Avg','Ø']])if(d[s]?.assigned){const span=el('span');span.title={Min:'Minimum',Max:'Maximum',Avg:'Durchschnitt'}[s];span.setAttribute('aria-label',span.title+' '+format(d[s].value,unit));span.append(el('em','',label),document.createTextNode(format(d[s].value,unit)));stats.append(span);}
+ }
+ for(const page of powerArea.querySelectorAll('.power-page')){const source=state.panels.find(p=>p.id===page.dataset.panel);for(const p of page.querySelectorAll('.power-phases .phase')){const d=source.data['Current'+p.dataset.phase],n=p.querySelector('.current');n.replaceChildren();n.hidden=!d.assigned;if(d.assigned){const stale=d.value!==null&&state.config.timeout>0&&now-d.updated>state.config.timeout;n.append(el('span','',format(d.value,'A')+(stale?' · nicht aktuell':'')));if(d.value!==null&&source.fuse>0)n.append(el('small','',`  / ${source.fuse} A · ${(d.value/source.fuse*100).toFixed(0)} %`));if(stale&&source.id===panel()?.id)staleCount++;}}}
+ document.getElementById('summary').textContent=staleCount?'Werte nicht aktuell':'';fitLayout();
+}
+function handleMessage(message){try{const next=typeof message==='string'?JSON.parse(message):message;if(next.error){state=null;document.getElementById('error').textContent=next.error;document.getElementById('error').hidden=false;root.hidden=true;return;}document.getElementById('error').hidden=true;root.hidden=false;
+ const signature=x=>JSON.stringify([x.config,Object.entries(x.voltage).map(([k,v])=>[k,v.assigned,v.target]),x.panels.map(p=>[p.id,p.name,p.target,p.fuse,p.showTotal,p.showPhase,p.zones,Object.entries(p.data).map(([k,v])=>[k,v.assigned,v.target])])]);
+ const rebuild=!state||signature(next)!==signature(state);state=next;const found=next.panels.findIndex(p=>p.id===activeId);activeIndex=found>=0?found:Math.min(activeIndex,Math.max(0,next.panels.length-1));activeId=panel()?.id??null;clockOffset=next.serverTime-Date.now()/1000;if(rebuild)build();update();}catch(e){console.error('PowerCockpit',e);}}
+let layoutCache=new Map(),layoutShape='',fitting=false;
+function fitLayout(){
+ const fit=document.getElementById('fit'),stage=document.getElementById('stage'),canvas=document.getElementById('canvas');if(!fit||!stage||!state?.config||root.hidden||fitting||drag)return;
+ const w=fit.clientWidth,h=fit.clientHeight;if(w<=0||h<=0)return;
+ const shape=JSON.stringify([...root.querySelectorAll('.stats,.current,.note')].map(n=>n.textContent));if(shape!==layoutShape){layoutCache.clear();layoutShape=shape;}
+ const layout=powerArea.querySelector('.power-page.active')?.dataset.layout||'none';
+ const key=w+':'+h+':'+layout;let best=layoutCache.get(key);fitting=true;
+ try{
+  const pages=[...powerArea.querySelectorAll('.power-page')].filter(p=>p.dataset.layout===layout);
+  const relevant=n=>!n.closest('.power-page')||pages.includes(n.closest('.power-page'));
+  // offsetHeight is independent of the previous scale transform and includes fixed-size heading slots.
+  function sizeTotals(){
+   const voltages=[...document.querySelectorAll('#voltages .gauge')].map(g=>parseFloat(getComputedStyle(g).width));
+   for(const page of pages){const total=page.querySelector('.total>.instrument');if(!total)continue;total.style.width='';const details=[...page.querySelectorAll('.power-phases .gauge')].map(g=>parseFloat(getComputedStyle(g).width)).concat(voltages).filter(w=>w>0);if(details.length)total.style.width=Math.min(parseFloat(getComputedStyle(total.parentNode).width),2*Math.min(...details))+'px';}
+  }
+  function measure(portrait,width,factor){stage.classList.toggle('portrait',portrait);stage.style.width=width+'px';root.style.setProperty('--fit-scale',factor);sizeTotals();const panelHeight=pages.length?Math.max(...pages.map(p=>p.offsetHeight)):0;powerArea.style.height=panelHeight+'px';return {height:stage.offsetHeight,panelHeight};}
+  if(!best){const candidates=[];
+   for(const portrait of [false,true]){
+    const width=Math.max(w,(portrait?160:240)*state.config.phases),limit=Math.min(1,w/width);
+    measure(portrait,width,1);
+    // Keep fixed-size headings and phase names legible. Very low tiles can scroll vertically.
+    const groups=[...stage.querySelectorAll('.phase-group,.total')].filter(g=>relevant(g)&&!g.hidden&&g.offsetWidth>0&&g.querySelector('.section-heading'));
+    const names=[...stage.querySelectorAll('.phase-names')].filter(n=>relevant(n)&&!n.closest('[hidden]')&&n.offsetWidth>0);
+    const minimum=Math.max(.001,...groups.map(g=>220/g.offsetWidth),...names.map(n=>80*state.config.phases/n.offsetWidth));
+    if(minimum>limit)continue;
+    let low=minimum,high=limit;
+    for(let i=0;i<20;i++){const f=(low+high)/2,m=measure(portrait,width,f);if(m.height*f<=h)low=f;else high=f;}
+    let factor=low,m=measure(portrait,width,factor);if(m.height*factor>h+1){factor=limit;m=measure(portrait,width,factor);}const hasTotal=pages.some(p=>p.querySelector('.total>.instrument'));
+    candidates.push({portrait,width,factor,height:m.height,panelHeight:m.panelHeight,scroll:m.height*factor>h+1,score:(hasTotal?Math.max(...pages.map(p=>p.querySelector('.total>.instrument')?.offsetWidth||0)):width/state.config.phases)*factor});
+   }
+   best=candidates.sort((a,b)=>Number(a.scroll)-Number(b.scroll)||(a.scroll&&b.scroll?Number(b.portrait)-Number(a.portrait):b.score-a.score))[0];if(!best){const width=Math.max(w,160*state.config.phases),factor=Math.min(1,w/width),m=measure(true,width,factor);best={portrait:true,width,factor,height:m.height,panelHeight:m.panelHeight,scroll:true};}layoutCache.set(key,best);if(layoutCache.size>16)layoutCache.delete(layoutCache.keys().next().value);
+  }
+  stage.classList.toggle('portrait',best.portrait);stage.style.width=best.width+'px';root.style.setProperty('--fit-scale',best.factor);sizeTotals();powerArea.style.height=best.panelHeight+'px';
+  fit.style.overflowY=best.scroll?'auto':'hidden';canvas.style.height=Math.max(h,Math.ceil(best.height*best.factor))+'px';
+  stage.style.transform=`translate(${Math.max(0,(w-best.width*best.factor)/2)}px,${Math.max(0,(h-best.height*best.factor)/2)}px) scale(${best.factor})`;
+ }finally{fitting=false;}
+}
+if(typeof ResizeObserver!=='undefined'){const observer=new ResizeObserver(fitLayout);observer.observe(root);observer.observe(document.getElementById('fit'));}
+window.addEventListener('resize',fitLayout);setInterval(update,1000);
+/*INITIAL*/
+</script></body></html>
