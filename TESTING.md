@@ -65,8 +65,9 @@ bleiben in W.
 
 ## Rückmeldung
 
-Bitte als [GitHub-Issue](https://github.com/wowbagger60/PowerCockpit/issues)
-oder im Symcon-Forum. Hilfreich sind:
+Bitte im [Forenthread zu PowerCockpit](https://community.symcon.de/t/tile-powercockpit-kachel-fuer-leistung-strom-und-spannung-beta-tester-mit-pv-oder-batterie-gesucht/144828) oder als
+[GitHub-Issue](https://github.com/wowbagger60/PowerCockpit/issues). Hilfreich
+sind:
 
 - Symcon-Version, Browser oder App und Gerät
 - Zählertyp, Quellenmodus und Leistungseinheit

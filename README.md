@@ -10,7 +10,8 @@ IP-Symcon library by Ueli Schweizer / Cassanis Automation.
 
 > **Beta version.** Testers with PV systems, batteries or other bidirectional
 > sources are very welcome. The test guide (in German) is in
-> [TESTING.md](TESTING.md).
+> [TESTING.md](TESTING.md), feedback in the
+> [forum thread](https://community.symcon.de/t/tile-powercockpit-kachel-fuer-leistung-strom-und-spannung-beta-tester-mit-pv-oder-batterie-gesucht/144828).
 
 ## Requirements
 

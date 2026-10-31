@@ -10,7 +10,8 @@ IP-Symcon-Bibliothek von Ueli Schweizer / Cassanis Automation.
 
 > **Beta-Version.** Tester mit PV-Anlage, Batterie oder anderen
 > bidirektionalen Quellen sind sehr willkommen. Die Anleitung steht in
-> [TESTING.md](TESTING.md).
+> [TESTING.md](TESTING.md), Rückmeldungen gerne im
+> [Forenthread](https://community.symcon.de/t/tile-powercockpit-kachel-fuer-leistung-strom-und-spannung-beta-tester-mit-pv-oder-batterie-gesucht/144828).
 
 ## Voraussetzungen
 

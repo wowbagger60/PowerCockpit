@@ -191,9 +191,9 @@ as «–» without a needle.
 
 ## 9. Support
 
-Please report questions and issues as a
-[GitHub issue](https://github.com/wowbagger60/PowerCockpit/issues) or in the
-Symcon forum.
+Please report questions and issues in the
+[PowerCockpit forum thread](https://community.symcon.de/t/tile-powercockpit-kachel-fuer-leistung-strom-und-spannung-beta-tester-mit-pv-oder-batterie-gesucht/144828) (German) or as a
+[GitHub issue](https://github.com/wowbagger60/PowerCockpit/issues).
 
 This module is free of charge. Donations to support the author are gratefully
 accepted: PayPal to ueli.schweizer@cassanis.fr

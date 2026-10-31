@@ -192,9 +192,9 @@ Variablen erscheinen als «–» ohne Zeiger.
 
 ## 9. Unterstützung
 
-Fragen und Fehlermeldungen bitte als
-[GitHub-Issue](https://github.com/wowbagger60/PowerCockpit/issues) oder im
-Symcon-Forum.
+Fragen und Fehlermeldungen bitte im
+[Forenthread zu PowerCockpit](https://community.symcon.de/t/tile-powercockpit-kachel-fuer-leistung-strom-und-spannung-beta-tester-mit-pv-oder-batterie-gesucht/144828) oder als
+[GitHub-Issue](https://github.com/wowbagger60/PowerCockpit/issues).
 
 Dieses Modul ist kostenlos. Schenkungen als Unterstützung für den Autor werden
 gerne angenommen: PayPal an ueli.schweizer@cassanis.fr
