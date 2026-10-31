@@ -1,3 +1,20 @@
+# 1.1 Build 2 (31.10.2026)
+
+- Aktualisierung ereignisgesteuert statt Abfrage alle 5 Sekunden: Jede Aktualisierung einer zugewiesenen Variable löst eine Übertragung aus, gebündelt innerhalb von 250 ms. Zusätzlich jede Minute eine Übertragung als Rückfallebene.
+- Optionale Netzfrequenz (Hz) in der Überschrift der Spannungsgruppe, mit Aktualitätsprüfung.
+- Nennspannung entfernt; sie hatte keine Wirkung auf die Anzeige.
+- Navigationsziel pro Panel entfernt. Die Ziele der einzelnen Instrumente bleiben.
+- Build-Anzeige im Formular aus library.json; ungenutzten Code entfernt.
+
+# 1.1 Build 1 (27.10.2026)
+
+- Bei Panels mit denselben sichtbaren Gruppen werden Statistik-, Hinweis- und Stromstärkeplätze pro Gruppe abgeglichen. Gauge-Grössen, Überschriften und Trenner bleiben auch bei fehlenden Zusatzwerten oder umgebrochenen Statistikzeilen ausgerichtet.
+- Explizit deaktivierte Gruppen geben ihren Platz weiterhin frei. Gleich aufgebaute Panels reservieren bei Bedarf auch den allgemeinen Aktualitätshinweis.
+- Statistikzeile mit leeren SVG-Dreiecken für Min/Max und Raute für Avg; neue Reihenfolge Min – Avg – Max. Zahlen und Schriftgrössen bleiben erhalten.
+- Englische Quelltexte und locale.json mit deutschen Übersetzungen für Formular, Panel-Editor, Kachel und eigene Konfigurationsfehler. Sprache folgt Symcon; individuelle Panelnamen bleiben unverändert.
+- Europäische Defaults für neue Instanzen: 230 V, grüne Spannungszone 207–253 V. Absicherung bleibt 40 A pro Phase; neue Leistungspanels erhalten passende Referenzen bis 9,2 kW pro Phase bzw. 27,6 kW total, grün bis 80 % dieser Referenz. Skalenenden bleiben 10/30 kW. Bestehende Konfigurationen bleiben erhalten.
+- Vorschau und Testanleitung aktualisiert. PHP-Prüfungen und Browser-Geometrieprüfungen in 63 Kombinationen bestanden. Live-Rückmeldung zu bidirektionalen Quellen steht weiterhin aus.
+
 # 1.0 Build 12 (23.10.2026)
 
 - Layoutkorrektur beim Ausblenden von Gruppen: Panels mit anderer sichtbarer Gruppenkombination reservieren keine Höhe mehr für ausgeblendete Instrumente. Gleich aufgebaute Panels behalten eine gemeinsame Höhenberechnung für stabile Spannungspositionen.

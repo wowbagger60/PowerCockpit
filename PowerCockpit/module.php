@@ -6,15 +6,14 @@ class PowerCockpit extends IPSModuleStrict
     {
         parent::Create();
         $this->RegisterPropertyInteger('SchemaVersion', 0);
-        $this->RegisterPropertyString('Panels', ''); // Empty string denotes an installation before Build 7.
+        $this->RegisterPropertyString('Panels', ''); // Empty string: list not yet created (new instance or update from before 0.1 Build 7).
         $this->RegisterPropertyInteger('PhaseCount', 3);
         $this->RegisterPropertyBoolean('ShowVoltage', true);
         $this->RegisterPropertyInteger('Timeout', 30);
         $this->RegisterPropertyInteger('PowerUnit', 1);
-        $this->RegisterPropertyFloat('NominalVoltage', 220);
+        $this->RegisterPropertyInteger('Frequency', 0);
         // Keep all original properties for lossless migration of existing instances.
         $this->RegisterPropertyString('PanelName', '');
-        $this->RegisterPropertyInteger('TileTarget', 1);
         $this->RegisterPropertyFloat('Fuse', 40);
         foreach ($this->Keys() as $key) {
             $this->RegisterPropertyInteger($key, 0);
@@ -27,20 +26,22 @@ class PowerCockpit extends IPSModuleStrict
             $this->RegisterPropertyFloat($name.'Start', $name === 'Voltage' ? 160 : 0);
             $this->RegisterPropertyString($name.'Zones', json_encode($zones));
         }
-        $this->RegisterTimer('Refresh', 5000, 'PWRCP_Refresh($_IPS["TARGET"]);');
+        $this->RegisterTimer('Refresh', 0, 'PWRCP_Refresh($_IPS["TARGET"]);');
         $this->SetVisualizationType(1);
     }
-    private function Phases(): array { return array_slice(['A','B','C'], 0, max(1,min(3,$this->ReadPropertyInteger('PhaseCount')))); }
+    private static function PhaseList(int $count): array { return array_slice(['A','B','C'], 0, max(1,min(3,$count))); }
+    private function Phases(): array { return self::PhaseList($this->ReadPropertyInteger('PhaseCount')); }
+    private function PanelKeys(): array { return array_merge(['TotalPower'],array_map(fn($v)=>'Power'.$v,$this->Phases()),array_map(fn($v)=>'Current'.$v,$this->Phases())); }
     private function Keys(): array { return ['TotalPower','VoltageA','VoltageB','VoltageC','PowerA','PowerB','PowerC','CurrentA','CurrentB','CurrentC']; }
     private function Defaults(): array
     {
-        return ['Voltage'=>[['End'=>198,'Color'=>0xE5AD22],['End'=>242,'Color'=>0x39A76B],['End'=>280,'Color'=>0xDB5149]],
-            'Total'=>[['End'=>20000,'Color'=>0x39A76B],['End'=>26400,'Color'=>0xE5AD22],['End'=>30000,'Color'=>0xDB5149]],
-            'Phase'=>[['End'=>6500,'Color'=>0x39A76B],['End'=>8800,'Color'=>0xE5AD22],['End'=>10000,'Color'=>0xDB5149]]];
+        return ['Voltage'=>[['End'=>207,'Color'=>0xE5AD22],['End'=>253,'Color'=>0x39A76B],['End'=>280,'Color'=>0xDB5149]],
+            'Total'=>[['End'=>22080,'Color'=>0x39A76B],['End'=>27600,'Color'=>0xE5AD22],['End'=>30000,'Color'=>0xDB5149]],
+            'Phase'=>[['End'=>7360,'Color'=>0x39A76B],['End'=>9200,'Color'=>0xE5AD22],['End'=>10000,'Color'=>0xDB5149]]];
     }
     private function PanelDefaults(): array
     {
-        $p=['ID'=>'','Name'=>'','Target'=>1,'Fuse'=>40.0,'ShowTotal'=>true,'ShowPhase'=>true,'TotalBidirectional'=>false,'PhaseBidirectional'=>false,'TotalZones'=>$this->Defaults()['Total'],'PhaseZones'=>$this->Defaults()['Phase']];
+        $p=['ID'=>'','Name'=>'','Fuse'=>40.0,'ShowTotal'=>true,'ShowPhase'=>true,'TotalBidirectional'=>false,'PhaseBidirectional'=>false,'TotalZones'=>$this->Defaults()['Total'],'PhaseZones'=>$this->Defaults()['Phase']];
         foreach (['TotalPower','PowerA','PowerB','PowerC','CurrentA','CurrentB','CurrentC'] as $key) {
             $p[$key]=0;
             if (!str_starts_with($key,'Current')) { $p[$key.'Target']=1; $p[$key.'Mode']=0; $p[$key.'Export']=0; $p[$key.'Invert']=false; foreach (['Min','Max','Avg'] as $s) $p[$key.$s]=0; }
@@ -50,11 +51,11 @@ class PowerCockpit extends IPSModuleStrict
     private function LegacyPanel(): array
     {
         $p=$this->PanelDefaults(); $p['ID']='legacy'; $p['Name']=$this->ReadPropertyString('PanelName');
-        // Historically 0 meant no target in this module. Preserve that intent on migration.
-        $p['Target']=max(1,$this->ReadPropertyInteger('TileTarget')); $p['Fuse']=$this->ReadPropertyFloat('Fuse');
+        $p['Fuse']=$this->ReadPropertyFloat('Fuse');
         foreach ($p as $key=>$value) {
             if (preg_match('/^(TotalPower|Power[ABC]|Current[ABC])(Min|Max|Avg|Target)?$/D',$key)) $p[$key]=$this->ReadPropertyInteger($key);
         }
+        // Historically 0 meant no target in this module. Preserve that intent on migration.
         foreach ($p as $key=>$value) if (str_ends_with($key,'Target')) $p[$key]=max(1,(int)$value);
         foreach (['Total','Phase'] as $name) $p[$name.'Zones']=json_decode($this->ReadPropertyString($name.'Zones'),true,512,JSON_THROW_ON_ERROR);
         return $p;
@@ -63,10 +64,12 @@ class PowerCockpit extends IPSModuleStrict
     {
         if ($this->ReadPropertyString('Panels') === '') return [$this->LegacyPanel()];
         $rows=json_decode($this->ReadPropertyString('Panels'),true,512,JSON_THROW_ON_ERROR);
-        if (!is_array($rows) || !array_is_list($rows)) throw new Exception('Ungültige Panelliste');
+        if (!is_array($rows) || !array_is_list($rows)) throw new Exception($this->Translate('Invalid panel list'));
+        $defaults=$this->PanelDefaults();
         foreach ($rows as &$row) {
-            if (!is_array($row)) throw new Exception('Ungültiges Panel');
-            $row=array_replace($this->PanelDefaults(),$row);
+            if (!is_array($row)) throw new Exception($this->Translate('Invalid panel'));
+            // Drop keys of removed options such as the former panel target.
+            $row=array_intersect_key(array_replace($defaults,$row),$defaults);
         }
         return $rows;
     }
@@ -74,6 +77,9 @@ class PowerCockpit extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->SetVisualizationType(version_compare(IPS_GetKernelVersion(),'9.1','>=') ? 2 : 1);
+        $this->RegisterMessage(0,IPS_KERNELSTARTED);
+        // Migration, references and messages need the complete object tree.
+        if (IPS_GetKernelRunlevel()!==KR_READY) return;
         // Persist migration once; do not recreate panels after an intentional deletion.
         try {
             $panels=$this->Panels(); $changed=$this->ReadPropertyString('Panels')===''; $seen=[];
@@ -91,27 +97,38 @@ class PowerCockpit extends IPSModuleStrict
             unset($panel);
             if ($changed) { IPS_SetProperty($this->InstanceID,'Panels',json_encode($panels,JSON_THROW_ON_ERROR)); IPS_ApplyChanges($this->InstanceID); return; }
             foreach ($this->GetReferenceList() as $id) $this->UnregisterReference($id);
-            $ids=[];
-            foreach ($this->Phases() as $phase) foreach (['','Min','Max','Avg','Target'] as $suffix) $ids[]=$this->ReadPropertyInteger('Voltage'.$phase.$suffix);
+            foreach ($this->GetMessageList() as $id=>$messages) if (in_array(VM_UPDATE,$messages,true)) $this->UnregisterMessage($id,VM_UPDATE);
+            $variables=[$this->ReadPropertyInteger('Frequency')]; $targets=[];
+            foreach ($this->Phases() as $phase) {
+                foreach (['','Min','Max','Avg'] as $suffix) $variables[]=$this->ReadPropertyInteger('Voltage'.$phase.$suffix);
+                $targets[]=$this->ReadPropertyInteger('Voltage'.$phase.'Target');
+            }
             foreach ($panels as $p) {
-                $ids[]=(int)$p['Target'];
-                foreach (array_merge(['TotalPower'],array_map(fn($v)=>'Power'.$v,$this->Phases()),array_map(fn($v)=>'Current'.$v,$this->Phases())) as $key) {
-                    $ids[]=(int)$p[$key];
-                    if (!str_starts_with($key,'Current')) foreach (['Min','Max','Avg','Target','Export'] as $s) $ids[]=(int)$p[$key.$s];
+                foreach ($this->PanelKeys() as $key) {
+                    $variables[]=(int)$p[$key];
+                    if (!str_starts_with($key,'Current')) { foreach (['Min','Max','Avg','Export'] as $s) $variables[]=(int)$p[$key.$s]; $targets[]=(int)$p[$key.'Target']; }
                 }
             }
-            foreach (array_unique($ids) as $id) if ($id>1 && IPS_ObjectExists($id)) $this->RegisterReference($id);
+            foreach (array_unique(array_merge($variables,$targets)) as $id) if ($id>1 && IPS_ObjectExists($id)) $this->RegisterReference($id);
+            // Push on variable updates instead of polling. See MessageSink and Refresh.
+            foreach (array_unique($variables) as $id) if ($id>1 && IPS_VariableExists($id)) $this->RegisterMessage($id,VM_UPDATE);
             $this->SnapshotOrThrow(); $this->SetStatus(102);
         } catch (Throwable $e) { $this->SetStatus(200); }
         $this->Refresh();
     }
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
+    {
+        if ($Message===IPS_KERNELSTARTED) $this->ApplyChanges();
+        // Meters update several variables in quick succession. Collect them into one push.
+        elseif ($Message===VM_UPDATE && $this->GetBuffer('RefreshPending')!=='1') { $this->SetBuffer('RefreshPending','1'); $this->SetTimerInterval('Refresh',250); }
+    }
     private function Zones(float $start, mixed $rows): array
     {
         if (is_string($rows)) $rows=json_decode($rows,true,512,JSON_THROW_ON_ERROR);
-        if (!is_array($rows) || count($rows)===0 || !is_finite($start)) throw new Exception('Mindestens eine Skalenzone erforderlich');
+        if (!is_array($rows) || count($rows)===0 || !is_finite($start)) throw new Exception($this->Translate('At least one scale zone is required'));
         $result=[];
         foreach ($rows as $row) {
-            if (!isset($row['End'],$row['Color']) || !is_numeric($row['End']) || !is_finite((float)$row['End']) || (float)$row['End']<=$start || !is_numeric($row['Color']) || (int)$row['Color']<0 || (int)$row['Color']>0xFFFFFF) throw new Exception('Skalenzonen: aufsteigende Grenzen und gültige Farben erforderlich');
+            if (!isset($row['End'],$row['Color']) || !is_numeric($row['End']) || !is_finite((float)$row['End']) || (float)$row['End']<=$start || !is_numeric($row['Color']) || (int)$row['Color']<0 || (int)$row['Color']>0xFFFFFF) throw new Exception($this->Translate('Scale zones require increasing limits and valid colors'));
             $result[]=['from'=>$start,'to'=>(float)$row['End'],'color'=>sprintf('#%06X',(int)$row['Color'])]; $start=(float)$row['End'];
         }
         return $result;
@@ -127,7 +144,7 @@ class PowerCockpit extends IPSModuleStrict
     {
         $power=str_contains($key,'Power');
         $mode=(int)($mapping[$key.'Mode']??0);
-        if ($power && !in_array($mode,[0,1],true)) throw new Exception('Ungültige Leistungszuordnung');
+        if ($power && !in_array($mode,[0,1],true)) throw new Exception($this->Translate('Invalid power mapping'));
         $d=$this->ReadMeasurement((int)($mapping[$key]??0));
         if ($power && $mode===1) {
             $other=$this->ReadMeasurement((int)($mapping[$key.'Export']??0));
@@ -162,8 +179,8 @@ class PowerCockpit extends IPSModuleStrict
     }
     private function SnapshotOrThrow(): array
     {
-        $factor=$this->ReadPropertyInteger('PowerUnit'); if (!in_array($factor,[1,1000],true)) throw new Exception('Leistungseinheit prüfen');
-        $config=['showVoltage'=>$this->ReadPropertyBoolean('ShowVoltage'),'timeout'=>max(0,$this->ReadPropertyInteger('Timeout')),'factor'=>$factor,'nominal'=>$this->ReadPropertyFloat('NominalVoltage'),'phases'=>count($this->Phases()),'zones'=>['Voltage'=>$this->Zones($this->ReadPropertyFloat('VoltageStart'),$this->ReadPropertyString('VoltageZones'))]];
+        $factor=$this->ReadPropertyInteger('PowerUnit'); if (!in_array($factor,[1,1000],true)) throw new Exception($this->Translate('Check power unit'));
+        $config=['texts'=>$this->TileTexts(),'showVoltage'=>$this->ReadPropertyBoolean('ShowVoltage'),'timeout'=>max(0,$this->ReadPropertyInteger('Timeout')),'factor'=>$factor,'phases'=>count($this->Phases()),'zones'=>['Voltage'=>$this->Zones($this->ReadPropertyFloat('VoltageStart'),$this->ReadPropertyString('VoltageZones'))]];
         $voltage=[];
         foreach ($this->Phases() as $phase) {
             $key='Voltage'.$phase; $mapping=[];
@@ -175,83 +192,104 @@ class PowerCockpit extends IPSModuleStrict
             try {
                 $zones=['Total'=>$this->PowerZones($p['TotalZones'],(bool)$p['TotalBidirectional']),'Phase'=>$this->PowerZones($p['PhaseZones'],(bool)$p['PhaseBidirectional'])];
                 $data=[];
-                foreach (array_merge(['TotalPower'],array_map(fn($v)=>'Power'.$v,$this->Phases()),array_map(fn($v)=>'Current'.$v,$this->Phases())) as $key) $data[$key]=$this->Measurement($key,$p,$factor);
-                $panels[]=['id'=>$p['ID'],'name'=>(string)$p['Name'],'target'=>(int)$p['Target'],'fuse'=>max(0,(float)$p['Fuse']),'showTotal'=>(bool)$p['ShowTotal'],'showPhase'=>(bool)$p['ShowPhase'],'zones'=>$zones,'data'=>$data];
-            } catch (Throwable $e) { throw new Exception('Panel '.($i+1).': '.$e->getMessage()); }
+                foreach ($this->PanelKeys() as $key) $data[$key]=$this->Measurement($key,$p,$factor);
+                $panels[]=['id'=>$p['ID'],'name'=>(string)$p['Name'],'fuse'=>max(0,(float)$p['Fuse']),'showTotal'=>(bool)$p['ShowTotal'],'showPhase'=>(bool)$p['ShowPhase'],'zones'=>$zones,'data'=>$data];
+            } catch (Throwable $e) { throw new Exception(sprintf($this->Translate('Panel %d: %s'),$i+1,$e->getMessage())); }
         }
-        return ['config'=>$config,'voltage'=>$voltage,'panels'=>$panels,'serverTime'=>time()];
+        return ['config'=>$config,'voltage'=>$voltage,'frequency'=>$this->ReadMeasurement($this->ReadPropertyInteger('Frequency')),'panels'=>$panels,'serverTime'=>time()];
     }
     private function Snapshot(): array
     {
-        try { return $this->SnapshotOrThrow(); } catch (Throwable $e) { return ['error'=>'Konfiguration prüfen: '.$e->getMessage()]; }
+        try { return $this->SnapshotOrThrow(); } catch (Throwable $e) { return ['error'=>sprintf($this->Translate('Check configuration: %s'),$e->getMessage())]; }
     }
-    public function Refresh(): void { $this->UpdateVisualizationValue(json_encode($this->Snapshot(),JSON_INVALID_UTF8_SUBSTITUTE)); }
+    public function Refresh(): void
+    {
+        // The slow fallback keeps deleted variables and the client clock offset current.
+        $this->SetBuffer('RefreshPending',''); $this->SetTimerInterval('Refresh',60000);
+        $this->UpdateVisualizationValue(json_encode($this->Snapshot(),JSON_INVALID_UTF8_SUBSTITUTE));
+    }
     public function RequestAction(string $Ident, mixed $Value): void { if ($Ident==='Refresh') $this->Refresh(); }
     public function GetVisualizationTile(): string
     {
         return str_replace('/*INITIAL*/','handleMessage('.json_encode($this->Snapshot(),JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE).');',file_get_contents(__DIR__.'/module.html'));
     }
+    private function LocalizeForm(array $form): array
+    {
+        foreach ($form as $key=>&$value) {
+            if (is_array($value)) $value=$this->LocalizeForm($value);
+            elseif (in_array($key,['caption','label'],true) && is_string($value)) $value=$this->Translate($value);
+        }
+        unset($value);
+        return $form;
+    }
+    private function TileTexts(): array
+    {
+        $texts=[];
+        foreach (['Total power', 'Phase power', 'Voltages', 'Voltage', 'Power', 'Phase', 'Power panels', 'Assign power variables for this panel.', 'Previous panel', 'Next panel', 'Below scale', 'Above scale', 'Not current', 'Values not current', 'Minimum', 'Maximum', 'Average'] as $text) $texts[$text]=$this->Translate($text);
+        return $texts;
+    }
     private function VariableField(string $name, string $caption): array { return ['type'=>'SelectVariable','name'=>$name,'caption'=>$caption]; }
     private function TargetField(string $name, string $caption): array { return ['type'=>'SelectObject','name'=>$name,'caption'=>$caption,'value'=>1]; }
     private function MeasurementForm(string $key, string $caption): array
     {
-        $stats=[]; foreach (['Min'=>'Minimum','Max'=>'Maximum','Avg'=>'Durchschnitt'] as $s=>$label) $stats[]=$this->VariableField($key.$s,$label.' (optional)');
+        $stats=[]; foreach (['Min'=>'Minimum','Avg'=>'Average','Max'=>'Maximum'] as $s=>$label) $stats[]=$this->VariableField($key.$s,$label.' (optional)');
         $items=[];
         if (str_contains($key,'Power')) {
-            $items[]=['type'=>'Select','name'=>$key.'Mode','caption'=>'Messwertquelle','options'=>[['caption'=>'Eine Variable (mit Vorzeichen)','value'=>0],['caption'=>'Zwei Variablen (Bezug minus Abgabe)','value'=>1]]];
-            $items[]=$this->VariableField($key,'Messwert / Bezug bei zwei Variablen');
-            $items[]=$this->VariableField($key.'Export','Abgabe (nur bei zwei Variablen)');
-            $items[]=['type'=>'CheckBox','name'=>$key.'Invert','caption'=>'Vorzeichen umkehren'];
-            $items[]=['type'=>'Label','caption'=>'Bezug positiv, Abgabe negativ. Zwei Richtungswerte müssen jeweils >= 0 sein. Statistik: vorzeichenbehaftete Nettoleistung vor Vorzeichenumkehr, keine Richtungsstatistiken.'];
-        } else $items[]=$this->VariableField($key,'Messwert');
-        $items[]=$this->TargetField($key.'Target','Navigationsziel (optional)');
-        $items[]=['type'=>'ExpansionPanel','caption'=>'Statistik (optional)','items'=>$stats];
+            $items[]=['type'=>'Select','name'=>$key.'Mode','caption'=>'Measurement source','options'=>[['caption'=>'One variable (signed)','value'=>0],['caption'=>'Two variables (import minus export)','value'=>1]]];
+            $items[]=$this->VariableField($key,'Measurement / import when using two variables');
+            $items[]=$this->VariableField($key.'Export','Export (only when using two variables)');
+            $items[]=['type'=>'CheckBox','name'=>$key.'Invert','caption'=>'Invert sign'];
+            $items[]=['type'=>'Label','caption'=>'Import is positive, export negative. Both directional readings must be >= 0. Statistics: signed net power before sign inversion, not separate directional statistics.'];
+        } else $items[]=$this->VariableField($key,'Measurement');
+        $items[]=$this->TargetField($key.'Target','Navigation target (optional)');
+        $items[]=['type'=>'ExpansionPanel','caption'=>'Statistics (optional)','items'=>$stats];
         return ['type'=>'ExpansionPanel','caption'=>$caption,'items'=>$items];
     }
     private function ZoneForm(string $name, string $caption, bool $voltage): array
     {
         $items=[];
-        if ($voltage) $items[]=['type'=>'NumberSpinner','name'=>'VoltageStart','caption'=>'Von (erste Zone, V)','digits'=>1];
-        $items[]=['type'=>'Label','caption'=>$voltage?'Jede Zone beginnt am Ende der vorherigen. Letztes Bis = Skalenende.':'Die erste Zone beginnt bei 0 W. Jede weitere beginnt am Ende der vorherigen.'];
+        if ($voltage) $items[]=['type'=>'NumberSpinner','name'=>'VoltageStart','caption'=>'From (first zone, V)','digits'=>1];
+        $items[]=['type'=>'Label','caption'=>$voltage?'Each zone starts at the end of the previous one. Last upper limit = end of scale.':'The first zone starts at 0 W. Each subsequent zone starts at the end of the previous one.'];
         $items[]=['type'=>'List','name'=>$name.'Zones','rowCount'=>4,'add'=>true,'delete'=>true,'columns'=>[
-            ['caption'=>$voltage?'Bis (V)':'Bis (W)','name'=>'End','width'=>'auto','add'=>$voltage?280:30000,'edit'=>['type'=>'NumberSpinner','digits'=>1]],
-            ['caption'=>'Farbe','name'=>'Color','width'=>'160px','add'=>0x39A76B,'edit'=>['type'=>'SelectColor']]]];
+            ['caption'=>$voltage?'To (V)':'To (W)','name'=>'End','width'=>'auto','add'=>$voltage?280:30000,'edit'=>['type'=>'NumberSpinner','digits'=>1]],
+            ['caption'=>'Color','name'=>'Color','width'=>'160px','add'=>0x39A76B,'edit'=>['type'=>'SelectColor']]]];
         return ['type'=>'ExpansionPanel','caption'=>$caption,'items'=>$items];
     }
     public function GetPanelForm(int $PhaseCount): string
     {
-        $phases=array_slice(['A','B','C'],0,max(1,min(3,$PhaseCount)));
-        $items=[['type'=>'ValidationTextBox','name'=>'Name','caption'=>'Panelname (optional bei einem Panel)'],$this->TargetField('Target','Navigationsziel des Panels (optional)'),['type'=>'NumberSpinner','name'=>'Fuse','caption'=>'Absicherung pro Phase (A)','digits'=>1,'minimum'=>0]];
-        $items[]=['type'=>'ExpansionPanel','caption'=>'Gesamtleistung','items'=>[['type'=>'CheckBox','name'=>'ShowTotal','caption'=>'Gesamtleistung anzeigen'],['type'=>'CheckBox','name'=>'TotalBidirectional','caption'=>'Bidirektionale Skala (Null in der Mitte)'],$this->MeasurementForm('TotalPower','Variablen'),$this->ZoneForm('Total','Skalenzonen (W)',false)]];
-        $power=[['type'=>'CheckBox','name'=>'ShowPhase','caption'=>'Phasenleistungen und zugehörige Stromstärken anzeigen'],['type'=>'CheckBox','name'=>'PhaseBidirectional','caption'=>'Bidirektionale Skala (Null in der Mitte)']]; foreach ($phases as $p) $power[]=$this->MeasurementForm('Power'.$p,'Phase '.$p);
-        $power[]=$this->ZoneForm('Phase','Gemeinsame Skalenzonen (W)',false);
-        $items[]=['type'=>'ExpansionPanel','caption'=>'Phasenleistungen','items'=>$power];
+        $phases=self::PhaseList($PhaseCount);
+        $items=[['type'=>'ValidationTextBox','name'=>'Name','caption'=>'Panel name (optional for a single panel)'],['type'=>'NumberSpinner','name'=>'Fuse','caption'=>'Fuse rating per phase (A)','digits'=>1,'minimum'=>0]];
+        $items[]=['type'=>'ExpansionPanel','caption'=>'Total power','items'=>[['type'=>'CheckBox','name'=>'ShowTotal','caption'=>'Show total power'],['type'=>'CheckBox','name'=>'TotalBidirectional','caption'=>'Bidirectional scale (zero in the center)'],$this->MeasurementForm('TotalPower','Variables'),$this->ZoneForm('Total','Scale zones (W)',false)]];
+        $power=[['type'=>'CheckBox','name'=>'ShowPhase','caption'=>'Show phase power and associated currents'],['type'=>'CheckBox','name'=>'PhaseBidirectional','caption'=>'Bidirectional scale (zero in the center)']]; foreach ($phases as $p) $power[]=$this->MeasurementForm('Power'.$p,'Phase '.$p);
+        $power[]=$this->ZoneForm('Phase','Shared scale zones (W)',false);
+        $items[]=['type'=>'ExpansionPanel','caption'=>'Phase power','items'=>$power];
         $current=[]; foreach ($phases as $p) $current[]=$this->VariableField('Current'.$p,'Phase '.$p.' (optional)');
-        $items[]=['type'=>'ExpansionPanel','caption'=>'Stromstärken (optional)','items'=>$current];
-        return json_encode($items,JSON_INVALID_UTF8_SUBSTITUTE);
+        $items[]=['type'=>'ExpansionPanel','caption'=>'Currents (optional)','items'=>$current];
+        return json_encode($this->LocalizeForm($items),JSON_INVALID_UTF8_SUBSTITUTE);
     }
     public function GetConfigurationForm(): string
     {
-        $module=[['type'=>'NumberSpinner','name'=>'Timeout','caption'=>'Aktualitätsgrenze (Sekunden, 0 = aus)','minimum'=>0],
-            ['type'=>'Select','name'=>'PowerUnit','caption'=>'Einheit aller Leistungsvariablen inkl. Statistik','options'=>[['caption'=>'W','value'=>1],['caption'=>'kW','value'=>1000]]],
-            ['type'=>'NumberSpinner','name'=>'NominalVoltage','caption'=>'Nennspannung (V)','digits'=>1,'minimum'=>1],
-            ['type'=>'Select','name'=>'PhaseCount','caption'=>'Anzahl Phasen','options'=>[['caption'=>'1','value'=>1],['caption'=>'2','value'=>2],['caption'=>'3','value'=>3]],'onChange'=>'PWRCP_ShowPhases($id, $PhaseCount);']];
-        $voltage=[['type'=>'CheckBox','name'=>'ShowVoltage','caption'=>'Spannungen anzeigen']];
+        $module=[['type'=>'NumberSpinner','name'=>'Timeout','caption'=>'Freshness limit (seconds, 0 = off)','minimum'=>0],
+            ['type'=>'Select','name'=>'PowerUnit','caption'=>'Unit of all power variables including statistics','options'=>[['caption'=>'W','value'=>1],['caption'=>'kW','value'=>1000]]],
+            ['type'=>'Select','name'=>'PhaseCount','caption'=>'Number of phases','options'=>[['caption'=>'1','value'=>1],['caption'=>'2','value'=>2],['caption'=>'3','value'=>3]],'onChange'=>'PWRCP_ShowPhases($id, $PhaseCount);']];
+        $voltage=[['type'=>'CheckBox','name'=>'ShowVoltage','caption'=>'Show voltages']];
         foreach (['A','B','C'] as $i=>$p) { $f=$this->MeasurementForm('Voltage'.$p,'Phase '.$p); $f['name']='VoltagePhase'.$p; $f['visible']=$i<count($this->Phases()); $voltage[]=$f; }
-        $voltage[]=$this->ZoneForm('Voltage','Gemeinsame Skalenzonen (V)',true);
+        $voltage[]=$this->VariableField('Frequency','Mains frequency in Hz (optional, shown in the heading)');
+        $voltage[]=$this->ZoneForm('Voltage','Shared scale zones (V)',true);
         $columns=[];
         foreach ($this->PanelDefaults() as $name=>$value) {
-            $c=['name'=>$name,'caption'=>$name==='Name'?'Panelname':$name,'width'=>$name==='Name'?'auto':'100px','visible'=>$name==='Name','save'=>true,'add'=>$value];
+            $c=['name'=>$name,'caption'=>$name==='Name'?'Panel name':$name,'width'=>$name==='Name'?'auto':'100px','visible'=>$name==='Name','save'=>true,'add'=>$value];
             if (str_ends_with($name,'Zones')) $c['edit']=['type'=>'List'];
             $columns[]=$c;
         }
-        $list=['type'=>'List','name'=>'Panels','caption'=>'Leistungspanels','rowCount'=>5,'add'=>true,'delete'=>true,'changeOrder'=>true,'columns'=>$columns,'form'=>'return json_decode(PWRCP_GetPanelForm($id, $PhaseCount), true);'];
+        $list=['type'=>'List','name'=>'Panels','caption'=>'Power panels','rowCount'=>5,'add'=>true,'delete'=>true,'changeOrder'=>true,'columns'=>$columns,'form'=>'return json_decode(PWRCP_GetPanelForm($id, $PhaseCount), true);'];
         if ($this->ReadPropertyString('Panels')==='') { $list['loadValuesFromConfiguration']=false; $list['values']=[$this->LegacyPanel()]; }
-        $elements=[['type'=>'Label','caption'=>'PowerCockpit 1.0 Build 12'],['type'=>'ExpansionPanel','caption'=>'Modul-Einstellungen','items'=>$module],['type'=>'ExpansionPanel','caption'=>'Spannungen (gemeinsam für alle Panels)','items'=>$voltage],$list,['type'=>'Label','caption'=>'Panels über das Bearbeiten-Symbol konfigurieren. Reihenfolge per Ziehen ändern. Änderungen werden mit Übernehmen gespeichert.']];
-        return json_encode(['elements'=>$elements,'actions'=>[],'status'=>[['code'=>200,'icon'=>'error','caption'=>'Ungültige Konfiguration']]],JSON_INVALID_UTF8_SUBSTITUTE);
+        $library=IPS_GetLibrary(IPS_GetModule(IPS_GetInstance($this->InstanceID)['ModuleInfo']['ModuleID'])['LibraryID']);
+        $elements=[['type'=>'Label','caption'=>'PowerCockpit '.$library['Version'].' Build '.$library['Build']],['type'=>'ExpansionPanel','caption'=>'Module settings','items'=>$module],['type'=>'ExpansionPanel','caption'=>'Voltages (shared across all panels)','items'=>$voltage],$list,['type'=>'Label','caption'=>'Configure panels using the edit icon. Drag to reorder. Changes are saved when applied.']];
+        return json_encode($this->LocalizeForm(['elements'=>$elements,'actions'=>[],'status'=>[['code'=>200,'icon'=>'error','caption'=>'Invalid configuration']]]),JSON_INVALID_UTF8_SUBSTITUTE);
     }
     public function ShowPhases(int $PhaseCount): void
     {
-        foreach (['A','B','C'] as $i=>$p) $this->UpdateFormField('VoltagePhase'.$p,'visible',$i<max(1,min(3,$PhaseCount)));
+        foreach (['A','B','C'] as $i=>$p) $this->UpdateFormField('VoltagePhase'.$p,'visible',$i<count(self::PhaseList($PhaseCount)));
     }
 }

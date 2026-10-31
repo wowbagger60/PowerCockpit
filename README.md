@@ -1,4 +1,4 @@
-# PowerCockpit 1.0 Build 12
+# PowerCockpit 1.1 Build 2
 
 Minimalistisches Anzeigemodul für die Symcon-Kachelvisualisierung. Präfix: PWRCP. Eine bis drei Phasen, gemeinsame Spannungsanzeigen und frei benannte Leistungspanels. Keine Gerätekommunikation, Archivabfrage oder Energiebilanz; alle Mess- und Statistikwerte stammen aus zugewiesenen Variablen.
 
@@ -6,24 +6,29 @@ Minimalistisches Anzeigemodul für die Symcon-Kachelvisualisierung. Präfix: PWR
 
 Das TAR ist ein vollständiges Quellpaket für eine eigene Modulbibliothek / ein Git-Repository. Über Symcons Module Control laden und eine Instanz „PowerCockpit“ erstellen. Voraussetzung: Symcon 8.2; natives Fullscreen wird ab 9.1 aktiviert.
 
-Beim Update aus Build 1–6 wird die bisherige Konfiguration einmalig als erstes Panel übernommen. Variablen, Statistiken, Farben und Absicherung bleiben erhalten. Die alten Properties bleiben intern für die Migration erhalten, werden aber nicht mehr im Formular angeboten. Absichtlich geleerte Panellisten werden nicht wieder mit dem alten Panel gefüllt.
+Beim Update aus 0.1 Build 1–6 wird die bisherige Konfiguration einmalig als erstes Panel übernommen. Variablen, Statistiken, Farben und Absicherung bleiben erhalten. Die alten Properties bleiben intern für die Migration erhalten, werden aber nicht mehr im Formular angeboten. Absichtlich geleerte Panellisten werden nicht wieder mit dem alten Panel gefüllt.
 
 Alte deaktivierte Navigationsziele mit Wert 0 werden bei der Übernahme auf 1 umgestellt. Anschliessend gilt: **1 = kein Ziel, 0 = Rootkategorie**. Diese Umstellung verhindert, dass zuvor deaktivierte Instrumente plötzlich zur Rootkategorie navigieren.
 
 ## Konfiguration
 
+### Sprache
+
+Englische Quelltexte und `PowerCockpit/locale.json` mit deutschen Übersetzungen. Formular, Panel-Editor, Kacheltexte und eigene Fehlermeldungen verwenden die Symcon-Systemsprache (Deutsch oder Englisch; für andere Sprachen englischer Fallback). Es gibt keinen zusätzlichen Sprachschalter im Modul. Individuelle Panelnamen und Variablenzuordnungen werden nicht übersetzt. Die Zahlenformatierung bleibt wie bisher.
+
 ### Modul-Einstellungen
 
 - Aktualitätsgrenze in Sekunden; Standard 30, 0 deaktiviert die Prüfung.
 - Einheit aller Leistungsvariablen einschliesslich Statistik: W oder kW. Die Einstellung gilt für alle Panels. Spannungen immer in V, Stromstärken in A.
-- Nennspannung in V. Sie verändert die frei konfigurierten Skalenzonen nicht automatisch und wird nicht als zusätzliche Skalenmarke gezeichnet.
 - Anzahl Phasen: 1, 2 oder 3. Anzeige A, A/B oder A/B/C. Nicht verwendete Phasen erscheinen nicht im Bearbeitungsformular; vorhandene Zuordnungen bleiben für eine spätere Umstellung gespeichert.
 
 ### Spannungen
 
 „Spannungen anzeigen“ schaltet die gemeinsame Spannungsgruppe für alle Panels ein oder aus. Variablen, Statistikzuordnungen und Skalenzonen bleiben gespeichert.
 
-Pro Phase Messwertvariable, optionales Navigationsziel sowie eine eingeklappte Statistikgruppe für Minimum (↓), Maximum (↑) und Durchschnitt (Ø). Die Spannungen sind für alle Panels gemeinsam und wechseln nicht mit dem Panel.
+Pro Phase Messwertvariable, optionales Navigationsziel sowie eine eingeklappte Statistikgruppe für Minimum, Durchschnitt und Maximum. Die Spannungen sind für alle Panels gemeinsam und wechseln nicht mit dem Panel.
+
+Optional lässt sich eine Variable für die Netzfrequenz in Hz zuweisen. Der Wert erscheint klein in der Überschrift „Spannungen“, mit zwei Nachkommastellen und derselben Aktualitätsprüfung wie die Messwerte. Er ist nur sichtbar, wenn die Spannungsgruppe angezeigt wird.
 
 Die gemeinsamen Spannungsskalenzonen beginnen am einstellbaren Wert „Von“. In jeder Listenzeile werden „Bis“ und die Farbe über den nativen Farbpicker festgelegt. Jede Zone schliesst an die vorherige an; das letzte Ende ist der Skalenendwert. Mindestens eine Zone, streng aufsteigende Endwerte.
 
@@ -33,10 +38,10 @@ Die Liste zeigt nur den Namen. Über das Bearbeiten-Symbol öffnet sich das gegl
 
 Pro Panel:
 
-- Name, optionales Navigationsziel und gemeinsame Absicherung pro Phase in A. Bei nur einem Panel darf der Name leer bleiben; die Namenszeile entfällt dann.
-- Gesamtleistung: separat ein-/ausblendbar; Messwertquelle, Navigationsziel, optionale Min/Max/Ø-Variablen und eigene Skalenzonen.
+- Name und gemeinsame Absicherung pro Phase in A. Bei nur einem Panel darf der Name leer bleiben; die Namenszeile entfällt dann.
+- Gesamtleistung: separat ein-/ausblendbar; Messwertquelle, Navigationsziel, optionale Min/Avg/Max-Variablen und eigene Skalenzonen.
 - Phasenleistungen: separat ein-/ausblendbar; entsprechende Variablen je Phase und gemeinsame Skalenzonen innerhalb dieses Panels. Der Schalter blendet auch die zugehörigen Stromstärken aus.
-- Optionale Stromstärken je Phase. Ohne Zuordnung verschwinden Werte und Abstand vollständig. Bei zugewiesener Stromstärke und Absicherung grösser 0 erscheint auch die prozentuale Auslastung.
+- Optionale Stromstärken je Phase. Ohne Zuordnung verschwinden die Werte. Bei gleich aufgebauten Panels wird ein von einem anderen Panel benötigter Stromstärkeplatz zur Ausrichtung freigehalten. Bei zugewiesener Stromstärke und Absicherung grösser 0 erscheint auch die prozentuale Auslastung.
 
 Skalenzonen der Leistung werden **immer in W** angegeben, unabhängig von der Einheit der Quellvariablen. Gesamtleistung und Phasenleistung haben getrennte Zonenlisten. Erste Zone beginnt bei 0 W; alle weiteren schliessen an. Das letzte Ende bestimmt den Maximalwert, etwa 30000, 50000 oder 100000 W.
 
@@ -59,7 +64,7 @@ Statistikvariablen enthalten immer die vorzeichenbehaftete **Nettoleistung vor d
 
 Bei zwei Richtungsvariablen bestimmt der ältere Aktualisierungszeitpunkt die Aktualität der Nettoleistung. Das Modul kann unabhängig aktualisierte Sensorwerte nicht zeitlich synchronisieren. Die Gesamtleistung kann gleichzeitig gegenläufige Phasenleistungen verdecken; die Phasenwerte werden deshalb unabhängig angezeigt und nicht aus dem Total abgeleitet.
 
-Ausgeblendete Bereiche beanspruchen keinen eigenen Platz, keine Überschrift und erzeugen keine Aktualitätswarnung. Alle Zuordnungen bleiben gespeichert. Für eine stabile Position der gemeinsamen Spannungen wird die Höhe des grössten Leistungsinhalts unter Panels mit derselben sichtbaren Gruppenkombination berücksichtigt. Ein Panel mit ausgeblendeter Gesamtleistung reserviert keinen Platz für die Gesamtleistung anderer Panels. Bei unterschiedlicher Gruppenkombination darf die Spannungsgruppe beim Panelwechsel ihre Höhe ändern.
+Ausgeblendete Bereiche beanspruchen keinen eigenen Platz, keine Überschrift und erzeugen keine Aktualitätswarnung. Alle Zuordnungen bleiben gespeichert. Bei Panels mit derselben sichtbaren Gruppenkombination werden die Plätze für Messinstrument, Hinweis, Statistik und Stromstärke pro Gruppe einzeln abgeglichen. Auch mehrzeilige Statistikwerte und einseitig vorhandene Aktualitätshinweise werden berücksichtigt. Dadurch bleiben Gauge-Grössen, Überschriften, Trenner und die gemeinsame Spannungsgruppe beim Panelwechsel stabil. Ein Panel mit ausgeblendeter Gesamtleistung reserviert keinen Platz für die Gesamtleistung anderer Panels. Bei unterschiedlicher Gruppenkombination darf die Spannungsgruppe beim Panelwechsel ihre Höhe ändern.
 
 ## Anzeige und Bedienung
 
@@ -69,9 +74,9 @@ Panelname und Gruppenüberschriften haben eine feste Bildschirm-Schriftgrösse v
 
 Mehrere Panels: immer sichtbare Chevrons sowie Wechsel durch horizontales Wischen mit Finger oder gedrückter linker Maustaste. Am Ende geht es wieder zum ersten Panel. Der Wechsel gilt nur für den jeweiligen Client und wird durch Messwertaktualisierungen nicht zurückgesetzt. Bei nur einem Panel entfallen Chevrons, Zähler und Wechselgesten.
 
-Die Spannungsanzeigen werden beim Wechsel nicht neu aufgebaut. Die Leistungspanels liegen getrennt im DOM; nur das aktuelle Panel ist sichtbar und bedienbar. Für den Leistungsbereich wird genügend Höhe für Panels mit derselben sichtbaren Gruppenkombination reserviert, damit unterschiedliche Statistikzeilen die Spannungsinstrumente dort nicht verschieben. Anders aufgebaute Panels bestimmen den Platzbedarf nicht mit.
+Die Spannungsanzeigen werden beim Wechsel nicht neu aufgebaut. Die Leistungspanels liegen getrennt im DOM; nur das aktuelle Panel ist sichtbar und bedienbar. Statistik-, Hinweis- und Stromstärkeplätze werden pro Gruppe zwischen Panels mit derselben sichtbaren Gruppenkombination abgeglichen. Fehlende Zusatzwerte lassen ihre Plätze leer, damit auch die nachfolgenden Gruppen ihre Position behalten. Anders aufgebaute Panels bestimmen den Platzbedarf nicht mit.
 
-Klick auf ein Instrument öffnet ausschliesslich sein eigenes optionales Ziel. Klick auf die freie Fläche des Leistungsbereichs öffnet das Ziel des aktuellen Panels. Freie Flächen im gemeinsamen Spannungsbereich haben kein Panelziel. Eine erkannte Wischbewegung löst beim Loslassen kein Navigationsziel aus. Scripts werden nicht direkt ausgeführt.
+Klick auf ein Instrument öffnet ausschliesslich sein eigenes optionales Ziel. Freie Flächen haben kein Ziel; das frühere Navigationsziel pro Panel entfällt ab 1.1 Build 2. Eine erkannte Wischbewegung löst beim Loslassen kein Navigationsziel aus. Scripts werden nicht direkt ausgeführt.
 
 Alle Zahlen und neutralen Linien verwenden die Symcon-Theme-Farbe `--content-color`. Der Hintergrund bleibt transparent. Nur die Skalenzonen tragen ihre konfigurierten Farben. Ein kurzer Pfeil markiert den aktuellen Wert; die Zahl steht gross im Halbkreis. Leistungsreferenzwerte sind tangential ausserhalb des Bogens beschriftet; Spannung ohne Skalenbeschriftung.
 
@@ -79,19 +84,19 @@ Spannung wird linear dargestellt. Leistung verläuft bis 100 W linear, darüber 
 
 ### Statistikmarker auf dem Farbband
 
-Zugewiesene, gültige Minimum- und Maximumwerte erscheinen zusätzlich als kleine, leere Dreiecke am äusseren Rand des Farbbandes. Die Dreiecke zeigen in entgegengesetzte Richtungen; der Durchschnitt erscheint als leere Raute. Die bisherigen Statistikzahlen bleiben unverändert erhalten. Alle Marker folgen der Symcon-Schriftfarbe, und es gibt dafür keine zusätzliche Konfigurationsoption.
+Zugewiesene, gültige Minimum- und Maximumwerte erscheinen zusätzlich als kleine, leere Dreiecke am äusseren Rand des Farbbandes. Die Dreiecke zeigen in entgegengesetzte Richtungen; der Durchschnitt erscheint als leere Raute. Die Statistikzeile verwendet dieselben leeren Symbole: ▽ Minimum, ◇ Durchschnitt, △ Maximum. Die Reihenfolge ist Min – Avg – Max; nicht zugewiesene Werte entfallen. Die Symbole werden als SVG dargestellt; Zahlen und Schriftgrössen bleiben erhalten. Alle Marker folgen der Symcon-Schriftfarbe, und es gibt dafür keine zusätzliche Konfigurationsoption.
 
 Die Marker verwenden exakt dieselbe lineare bzw. logarithmische Position wie der aktuelle Wert, auch bei negativen Leistungen. Nahe beieinanderliegende Statistikmarker werden radial versetzt, ohne ihre Winkelposition zu verändern. Bei gleicher Position kann der gefüllte Messwertpfeil einen Statistikmarker überdecken; die Statistikzahl bleibt verfügbar. Werte ausserhalb der Skala werden am Anschlag markiert. Ihre tatsächlichen Werte stehen weiterhin in der Statistikzeile. Nicht zugewiesene oder ungültige Statistikwerte erhalten keinen Marker.
 
 ## Aktualität und fehlende Werte
 
-Abfrage alle 5 Sekunden. Die Aktualitätsprüfung verwendet `VariableUpdated`, nicht `VariableChanged`. Unveränderte, regelmässig aktualisierte Werte bleiben aktuell. Veraltete Messwerte bleiben lesbar und werden mit reduzierter Pfeilintensität, gepunkteter Unterstreichung und Hinweis markiert. Statistikvariablen haben keinen eigenen Timeout.
+Die Anzeige wird bei jeder Aktualisierung einer zugewiesenen Variable neu übertragen; kurz aufeinanderfolgende Aktualisierungen werden innerhalb von 250 ms zusammengefasst. Zusätzlich erfolgt jede Minute eine Übertragung, auch ohne neue Werte. Die Aktualitätsprüfung verwendet `VariableUpdated`, nicht `VariableChanged`. Unveränderte, regelmässig aktualisierte Werte bleiben aktuell. Veraltete Messwerte bleiben lesbar und werden mit reduzierter Pfeilintensität, gepunkteter Unterstreichung und Hinweis markiert. Statistikvariablen haben keinen eigenen Timeout.
 
 Nicht zugewiesene Messwerte werden ausgeblendet. Gelöschte oder nicht numerische Variablen bleiben als „–“ ohne Pfeil erkennbar. Bei mehreren konfigurierten Phasen bleibt die Phasenzuordnung auch dann erhalten, wenn ein einzelnes Instrument nicht zugewiesen ist. Ohne Leistungspanels bleiben die gemeinsamen Spannungen sichtbar.
 
 ## Vorschau und Beispielzuordnungen
 
-`preview.html` direkt im Browser öffnen. Enthält drei Beispielpanels einschliesslich Batterie mit negativen und positiven Phasenwerten. Theme, Phasenanzahl, Sichtbarkeit der Gruppen und Leistungsrichtung lassen sich umschalten. Das zweite Panel blendet die Gesamtleistung aus; Statistikbeispiele zeigen die neuen Marker. Keine Live-Daten oder Verbindung zu Symcon.
+`preview.html` direkt im Browser öffnen. Enthält drei Beispielpanels einschliesslich Batterie mit negativen und positiven Phasenwerten. Theme, Phasenanzahl, Sichtbarkeit der Gruppen und Leistungsrichtung lassen sich umschalten. Die ersten beiden Panels zeigen dieselben Gruppen mit und ohne Statistiken/Stromstärken und demonstrieren deren feste Ausrichtung. Deutsch und Englisch können in der lokalen Vorschau umgeschaltet werden. Keine Live-Daten oder Verbindung zu Symcon.
 
 Santo André, bestehende Shelly-Variablen:
 
@@ -102,14 +107,19 @@ Santo André, bestehende Shelly-Variablen:
 | Wirkleistung A / B / C | 57531 / 54540 / 20221 |
 | Stromstärke A / B / C | 20839 / 33178 / 29315 |
 
-Standardwerte: 220 V, 40 A, drei Phasen; Spannung 160–280 V, Gesamtleistung 0–30 kW, Phasenleistung 0–10 kW. Für Cassanis beispielsweise Nennspannung 230 V und grüne Spannungsskalenzone 207–253 V einstellen; Leistungsskalenzonen und Absicherung ebenfalls anpassen.
+Standardwerte für neue Instanzen: 40 A pro Phase, drei Phasen; Spannung 160–280 V mit grünem Bereich 207–253 V. Neue Panels: Gesamtleistung 0–30 kW und Phasenleistung 0–10 kW. Die grünen Zonen reichen bis 22,08 bzw. 7,36 kW, gelb bis 27,6 bzw. 9,2 kW. Diese Leistungsreferenzen entsprechen 80 % und 100 % von 230 V × 40 A × Phasenanzahl für den dreiphasigen Standard bei Leistungsfaktor 1; sie sind keine automatisch berechnete Belastungsgrenze. Weder Nennspannung, Sicherung noch Phasenanzahl passen die frei konfigurierten Leistungszonen automatisch an.
+
+Beim Update bleiben gespeicherte Sicherungen, Farbgrenzen, Variablen und Panelkonfigurationen erhalten. Für 220-V-Netze wie in Bahia die grüne Spannungszone beispielsweise auf 198–242 V setzen. Die frühere Einstellung „Nennspannung“ hatte keine Wirkung auf die Anzeige und entfällt ab 1.1 Build 2. Neue Panels erhalten die neuen Standardzonen auch in bestehenden Instanzen; vorhandene Panels behalten ihre gespeicherten Zonen.
 
 ## Prüfung
 
-PHP-Syntax und Backend mit nachgebildeter Symcon-API geprüft: Migration, Referenzen, Panel-IDs, eine/zwei/drei Phasen, Einheitenumrechnung, leere Listen und ungültige Skalenzonen. Build 12: Chromium-Prüfungen in sechs Formaten (360×420 bis 1500×650), mit gemessenen Bildschirm-Schriftgrössen und Prüfung auf abgeschnittene Instrumente. Weitere Prüfungen für Chevrons, Maus- und emulierte Touch-Gesten, Klickunterdrückung, Instrumentennavigation, Theme-Farbe, Panelreihenfolge, gemeinsame Spannungen sowie Hoch- und Querformate.
+Version 1.1 Build 1:
 
-Zusätzlich für Build 11 geprüft: vorzeichenbehaftete und getrennte Richtungswerte in W/kW, Vorzeichenumkehr inklusive Min/Max, fehlende und ungültige Richtungswerte, ältere Zeitstempel, Referenzen auf die zweite Variable, symmetrische Skalenzonen und alle 24 Kombinationen von drei Anzeigegruppen mit einer/zwei/drei Phasen. Ein aus dem PHP-Backend erzeugter Netto-Datensatz wurde auch im Browser geprüft.
+- PHP-Syntax sowie Datenverarbeitung mit nachgebildeter Symcon-API geprüft: neue Defaults, Erhalt gespeicherter und historischer Konfigurationen, Referenzen, Vorzeichenumkehr und Netto-Statistikwerte.
+- Deutsche und englische Konfigurationsformulare, Panel-Editoren, Kacheltexte und eigene Konfigurationsfehler geprüft. Aus dem PHP-Backend erzeugte DE/EN-Snapshots auch im Browser verwendet.
+- 63 Kombinationen aus sieben Bildschirmformaten (360×420 bis 1500×650), einer/zwei/drei Phasen und drei sichtbaren Leistungskombinationen: gleiche Positionen und Grössen der Gruppen zwischen Panels mit/ohne Statistik, Hinweisen und Stromstärken; keine abgeschnittenen Instrumente.
+- Explizit deaktivierte Gruppen geben ihren Platz frei. Live-Änderungen an Statistikwerten, SVG-Symbole und Reihenfolge, Theme-Farbe, emulierte Touch-Gesten ohne Navigationsfehler und Fehlerbehandlung geprüft.
 
-**Noch offen:** nativer Konfigurationsdialog und Live-Betrieb einschliesslich realer bidirektionaler Messgeräte und iOS/Android. Version 1.0 Build 12 ist dafür ein Teststand, keine bereits mit echten bidirektionalen Quellen validierte Freigabe. Eine gezielte Anleitung steht in `TESTING.md`.
+Version 1.1 Build 2 ist nicht in Symcon geprüft, nur die Vorschau im Browser: ereignisgesteuerte Aktualisierung, Netzfrequenz, Entfernen von Panelziel und Nennspannung.
 
-Build 12 zusätzlich: 60 Vergleiche zwischen einer reduzierten Einzelansicht und derselben Ansicht neben einem anders aufgebauten Panel, verteilt auf fünf Bildschirmformate, drei Phasenanzahlen und vier Leistungskombinationen. Markerpositionen, Formen, Clamping, ungültige Werte, Live-Änderungen und Theme-Farbe geprüft. Die PHP-Datenverarbeitung ist gegenüber Build 11 unverändert; nur die Build-Beschriftung wurde erhöht.
+**Noch offen:** nativer Konfigurationsdialog und Live-Test der neuen Version in Symcon, insbesondere Rückmeldung zu realen bidirektionalen Quellen und mobilen Clients. Die Datenverarbeitung für bidirektionale Leistung bleibt gegenüber 1.0 Build 12 unverändert. Hinweise für den Tester stehen in `TESTING.md`.

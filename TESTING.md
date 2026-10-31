@@ -1,4 +1,4 @@
-# PowerCockpit 1.0 Build 12: Test mit echten Messwerten
+# PowerCockpit 1.1 Build 2: Test mit echten Messwerten
 
 Dieser Build ist mit nachgebildeter Symcon-API und Browser-Testdaten geprüft. Reale bidirektionale Quellen sowie der native Konfigurationsdialog sind noch nicht validiert.
 
@@ -35,8 +35,17 @@ Für kW-Quellen entsprechend 2.4 bzw. 0.3 und 2.7 verwenden. Die Skalenzonen ble
 - Nur Netto-Statistikwerte zuordnen. Bei Min -5 kW, Max +3 kW und Avg -1 kW muss die Vorzeichenumkehr Min -3 kW, Max +5 kW und Avg +1 kW anzeigen.
 - Gesamtleistung und Phasenleistungen pro Panel ausschalten, Spannungen global ausschalten. Überschriften verschwinden, Wertezuordnungen bleiben nach Wiedereinschalten erhalten. Phasenleistungen aus blendet auch Stromstärken aus.
 - Ein zweites Panel mit Gesamtleistung einrichten und im ersten Gesamtleistung ausblenden: Zwischen Phasenleistung und Spannung darf kein grosser Leerraum für die ausgeblendete Gesamtleistung bleiben. Bei unterschiedlich aufgebauten Panels darf die gemeinsame Spannung beim Wechsel rücken; bei gleicher Gruppenkombination bleibt ihre Position stabil.
-- Zugewiesene Min/Max-Statistiken erscheinen zusätzlich als leere Dreiecke auf dem Farbband, Avg als Raute. Werte mit den Statistikzahlen vergleichen, insbesondere bei negativen Leistungen, Null, gleichen/nahen Werten und ausserhalb der Skala. Fehlende/ungültige Werte dürfen keinen Marker haben.
-- Panelwechsel mit Chevrons, Finger und Maus sowie Navigationsziele prüfen. Gemeinsame Spannungen sollen beim Panelwechsel stehen bleiben.
+- Zugewiesene Min/Max-Statistiken erscheinen zusätzlich als leere Dreiecke auf dem Farbband, Avg als Raute. Werte mit den Statistikzahlen vergleichen (Reihenfolge Min – Avg – Max; leeres Dreieck nach unten, leere Raute, leeres Dreieck nach oben), insbesondere bei negativen Leistungen, Null, gleichen/nahen Werten und ausserhalb der Skala. Fehlende/ungültige Werte dürfen keinen Marker haben.
+- Panelwechsel mit Chevrons, Finger und Maus sowie Navigationsziele der Instrumente prüfen. Gemeinsame Spannungen sollen beim Panelwechsel stehen bleiben.
 - Formular nach Speichern neu öffnen: Anzeigeoptionen, Quellenmodus, zweite Variable, Vorzeichenumkehr und Skalen müssen erhalten bleiben. Auch 1-/2-/3-phasige Einstellungen und Fullscreen prüfen.
 
 Für Rückmeldungen hilfreich: Symcon-Version, Browser/App und Gerät, Quellenmodus, Leistungseinheit, betroffene Variablen samt Rohwerten und Zeitstempeln, Erwartung und Screenshot. Variable IDs allein erklären die Ursache nicht.
+
+
+## Zusätzlich für Version 1.1
+
+- Vor dem Update die gespeicherten Spannungs- und Leistungszonen notieren. Nach dem Update müssen sie samt Variablen und Sicherungen erhalten bleiben. Eine neue Instanz verwendet dagegen 230 V und 207–253 V als grüne Spannungszone; neue Panels 40 A mit den europäischen Leistungszonen.
+- Zwei Panels mit denselben Gruppen konfigurieren, nur eines mit Statistik und Stromstärken. Beim Wechsel müssen die einzelnen Gauges, Überschriften, Trenner und die Spannungen auf gleicher Höhe bleiben. Auch mehrzeilige Statistikzeilen auf einem schmalen Display prüfen.
+- In einem Panel eine ganze Gruppe ausdrücklich deaktivieren: Ihr Platz muss frei werden. Eine leere Statistikzeile ist dagegen keine deaktivierte Gruppe.
+- In der Statistikzeile Min – Avg – Max und dieselben leeren Symbole wie auf der Skala prüfen. Nicht zugewiesene Statistikwerte erscheinen nicht; bei noch zugewiesener, aber fehlender Variable bleibt der Zahlenplatz als „–“ sichtbar.
+- Deutsche/englische Symcon-Systemsprache: Konfigurationsformular, Panel-Editor, Kachel und eigene Konfigurationsfehler prüfen. Individuelle Panelnamen müssen unverändert bleiben. Ein Browser-Sprachwechsel allein schaltet die serverseitigen Kacheltexte nicht um.
