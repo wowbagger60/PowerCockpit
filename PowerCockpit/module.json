@@ -2,13 +2,13 @@
   "id": "{4F8B57EC-291A-4D23-9CBC-D064E7E3E36F}",
   "name": "PowerCockpit",
   "type": 3,
-  "vendor": "",
+  "vendor": "Cassanis Automation",
+  "url": "https://github.com/wowbagger60/PowerCockpit/blob/main/PowerCockpit/README.md",
   "aliases": [
-    "PowerCockpit"
+    "Power Cockpit"
   ],
   "parentRequirements": [],
   "childRequirements": [],
   "implemented": [],
-  "prefix": "PWRCP",
-  "url": "https://github.com/wowbagger60/PowerCockpit"
+  "prefix": "PWRCP"
 }

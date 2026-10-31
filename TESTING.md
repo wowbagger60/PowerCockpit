@@ -1,51 +1,74 @@
-# PowerCockpit 1.1 Build 2: Test mit echten Messwerten
+# PowerCockpit Beta: Test mit echten Messwerten
 
-Dieser Build ist mit nachgebildeter Symcon-API und Browser-Testdaten geprüft. Reale bidirektionale Quellen sowie der native Konfigurationsdialog sind noch nicht validiert.
+Danke fürs Testen! Ich habe selbst keine Anlage mit Einspeisung; negative
+Leistung ist deshalb nur mit Testdaten geprüft. Was fehlt, sind Erfahrungen
+mit echten bidirektionalen Quellen: PV-Anlagen, Batteriespeicher, Wallboxen mit Rückspeisung oder Zähler,
+die Bezug und Abgabe getrennt liefern.
 
-## Konvention und Einrichtung
+Die Bedienung ist in der [Modulbeschreibung](PowerCockpit/README.de.md)
+erklärt.
 
-Positiv = Bezug, negativ = Abgabe aus Sicht des Hauses. Batterieentladung liefert ans Haus und ist positiv; Laden bezieht vom Haus und ist negativ. Geräteseitige Vorzeichen bei Bedarf pro Leistungszuordnung umkehren.
+## Einrichtung
 
-1. Eine Instanz mit dem bisherigen Build aktualisieren. Zuordnungen und Darstellung sollten unverändert bleiben. Ein neues Panel für den bidirektionalen Test anlegen.
-2. Globale Leistungseinheit prüfen (W oder kW, auch für alle Statistikvariablen).
-3. Gesamtleistung bzw. gewünschte Phasen zuweisen. Für die jeweiligen Gruppen „Bidirektionale Skala“ aktivieren. Die positiven Skalenzonen werden automatisch auf negative Werte gespiegelt.
-4. Bei getrennten Richtungsvariablen „Zwei Variablen“ wählen: Bezug und Abgabe zuweisen. Beide müssen positive Beträge oder Null liefern. Eine stillstehende Richtung benötigt ebenfalls einen gültigen Wert.
-5. Wenden die Quellen unterschiedliche Vorzeichenkonventionen an, „Vorzeichen umkehren“ je Total/Phase verwenden.
+Konvention: positiv = Bezug, negativ = Abgabe, aus Sicht des Hauses.
+Batterieentladung liefert ans Haus und ist positiv; Laden bezieht vom Haus und
+ist negativ.
+
+1. Instanz anlegen und die globale Leistungseinheit prüfen (W oder kW, gilt auch
+   für alle Statistikvariablen).
+2. Gesamtleistung bzw. Phasenleistungen zuweisen und für die jeweilige Gruppe
+   «Bidirektionale Skala» aktivieren. Die Skalenzonen werden automatisch auf die
+   negative Seite gespiegelt.
+3. Liefert der Zähler Bezug und Abgabe getrennt, «Zwei Variablen» wählen und
+   beide zuweisen. Beide müssen Werte ≥ 0 liefern, auch eine gerade ruhende
+   Richtung.
+4. Verwendet ein Gerät die umgekehrte Konvention, «Vorzeichen umkehren» für die
+   betroffene Zuordnung aktivieren.
 
 ## Erwartete Werte
 
 | Quelle | Messwerte in W | Erwartete Anzeige |
 |---|---|---|
-| Einzelvariable | +2400 | 2.40 kW rechts von Null |
-| Einzelvariable | -2400 | -2.40 kW links von Null |
+| Eine Variable | +2400 | 2.40 kW rechts von Null |
+| Eine Variable | -2400 | -2.40 kW links von Null |
 | Zwei Variablen | Bezug 300, Abgabe 2700 | -2.40 kW links von Null |
 | Zwei Variablen, umgekehrt | Bezug 300, Abgabe 2700 | 2.40 kW rechts von Null |
-| Zwei Variablen | Beide 0 | 0 W, Pfeil senkrecht in der Mitte |
-| Zwei Variablen | Eine fehlt/ist gelöscht | „–“, kein Pfeil |
-| Zwei Variablen | Ein Richtungswert negativ | „–“, kein Pfeil |
+| Zwei Variablen | beide 0 | 0 W, Zeiger senkrecht in der Mitte |
+| Zwei Variablen | eine fehlt oder ist gelöscht | «–», kein Zeiger |
+| Zwei Variablen | ein Wert negativ | «–», kein Zeiger |
 
-Für kW-Quellen entsprechend 2.4 bzw. 0.3 und 2.7 verwenden. Die Skalenzonen bleiben in W.
+Für kW-Quellen entsprechend 2.4 bzw. 0.3 und 2.7 verwenden. Die Skalenzonen
+bleiben in W.
 
 ## Im Betrieb prüfen
 
-- Netzbezug/-abgabe und Batterieladen/-entladen mit der Geräteanzeige vergleichen. Bei Richtungswechseln muss die Skala fest stehen bleiben, nur Pfeil und Zahlen ändern sich.
-- Gesamtwert und einzelne Phasen vergleichen, besonders bei gleichzeitig gegenläufigen Phasen. Das Modul summiert oder verteilt keine Phasenwerte.
-- Nullnähe und kleine Werte (z.B. ±10 W, ±100 W) beobachten. Endwerte und Werte ausserhalb der Skala bleiben als Zahl korrekt; der Pfeil wird begrenzt.
-- Beide Richtungsvariablen müssen regelmässig aktualisiert werden. Stoppt eine, muss nach Ablauf der Aktualitätsgrenze die Nettoanzeige als veraltet erscheinen. Asynchrone Updates können kurzfristige Zwischenwerte verursachen.
-- Nur Netto-Statistikwerte zuordnen. Bei Min -5 kW, Max +3 kW und Avg -1 kW muss die Vorzeichenumkehr Min -3 kW, Max +5 kW und Avg +1 kW anzeigen.
-- Gesamtleistung und Phasenleistungen pro Panel ausschalten, Spannungen global ausschalten. Überschriften verschwinden, Wertezuordnungen bleiben nach Wiedereinschalten erhalten. Phasenleistungen aus blendet auch Stromstärken aus.
-- Ein zweites Panel mit Gesamtleistung einrichten und im ersten Gesamtleistung ausblenden: Zwischen Phasenleistung und Spannung darf kein grosser Leerraum für die ausgeblendete Gesamtleistung bleiben. Bei unterschiedlich aufgebauten Panels darf die gemeinsame Spannung beim Wechsel rücken; bei gleicher Gruppenkombination bleibt ihre Position stabil.
-- Zugewiesene Min/Max-Statistiken erscheinen zusätzlich als leere Dreiecke auf dem Farbband, Avg als Raute. Werte mit den Statistikzahlen vergleichen (Reihenfolge Min – Avg – Max; leeres Dreieck nach unten, leere Raute, leeres Dreieck nach oben), insbesondere bei negativen Leistungen, Null, gleichen/nahen Werten und ausserhalb der Skala. Fehlende/ungültige Werte dürfen keinen Marker haben.
-- Panelwechsel mit Chevrons, Finger und Maus sowie Navigationsziele der Instrumente prüfen. Gemeinsame Spannungen sollen beim Panelwechsel stehen bleiben.
-- Formular nach Speichern neu öffnen: Anzeigeoptionen, Quellenmodus, zweite Variable, Vorzeichenumkehr und Skalen müssen erhalten bleiben. Auch 1-/2-/3-phasige Einstellungen und Fullscreen prüfen.
+- Netzbezug und Einspeisung sowie Laden und Entladen der Batterie mit der
+  Anzeige des Geräts vergleichen. Bei Richtungswechseln bleibt die Skala stehen,
+  nur Zeiger und Zahlen ändern sich.
+- Gesamtwert und einzelne Phasen vergleichen, besonders bei gleichzeitig
+  gegenläufigen Phasen. Das Modul summiert oder verteilt keine Phasenwerte.
+- Kleine Werte um Null beobachten (etwa ±10 W, ±100 W).
+- Die Anzeige soll Wertänderungen ohne spürbare Verzögerung folgen.
+- Stoppt eine von zwei Richtungsvariablen, muss die Nettoanzeige nach Ablauf
+  der Aktualitätsgrenze als «Nicht aktuell» erscheinen.
+- Statistik: nur Netto-Werte zuordnen. Bei Min -5 kW, Avg -1 kW und Max +3 kW
+  muss die Vorzeichenumkehr Min -3 kW, Avg +1 kW und Max +5 kW zeigen. Die
+  Marker auf dem Farbband müssen zu den Zahlen passen.
+- Wer eine Variable für die Netzfrequenz hat: Sie erscheint in der Überschrift
+  «Spannungen».
+- Mehrere Panels anlegen (zum Beispiel Haus, PV, Batterie) und mit Pfeilen,
+  Finger und Maus wechseln. Gleich aufgebaute Panels sollen ihre Instrumente an
+  derselben Stelle zeigen.
+- Formular nach dem Speichern neu öffnen: Quellenmodus, zweite Variable,
+  Vorzeichenumkehr und Skalenzonen müssen erhalten bleiben.
+- Wenn möglich auch auf Smartphone oder Tablet und im Vollbild prüfen.
 
-Für Rückmeldungen hilfreich: Symcon-Version, Browser/App und Gerät, Quellenmodus, Leistungseinheit, betroffene Variablen samt Rohwerten und Zeitstempeln, Erwartung und Screenshot. Variable IDs allein erklären die Ursache nicht.
+## Rückmeldung
 
+Bitte als [GitHub-Issue](https://github.com/wowbagger60/PowerCockpit/issues)
+oder im Symcon-Forum. Hilfreich sind:
 
-## Zusätzlich für Version 1.1
-
-- Vor dem Update die gespeicherten Spannungs- und Leistungszonen notieren. Nach dem Update müssen sie samt Variablen und Sicherungen erhalten bleiben. Eine neue Instanz verwendet dagegen 230 V und 207–253 V als grüne Spannungszone; neue Panels 40 A mit den europäischen Leistungszonen.
-- Zwei Panels mit denselben Gruppen konfigurieren, nur eines mit Statistik und Stromstärken. Beim Wechsel müssen die einzelnen Gauges, Überschriften, Trenner und die Spannungen auf gleicher Höhe bleiben. Auch mehrzeilige Statistikzeilen auf einem schmalen Display prüfen.
-- In einem Panel eine ganze Gruppe ausdrücklich deaktivieren: Ihr Platz muss frei werden. Eine leere Statistikzeile ist dagegen keine deaktivierte Gruppe.
-- In der Statistikzeile Min – Avg – Max und dieselben leeren Symbole wie auf der Skala prüfen. Nicht zugewiesene Statistikwerte erscheinen nicht; bei noch zugewiesener, aber fehlender Variable bleibt der Zahlenplatz als „–“ sichtbar.
-- Deutsche/englische Symcon-Systemsprache: Konfigurationsformular, Panel-Editor, Kachel und eigene Konfigurationsfehler prüfen. Individuelle Panelnamen müssen unverändert bleiben. Ein Browser-Sprachwechsel allein schaltet die serverseitigen Kacheltexte nicht um.
+- Symcon-Version, Browser oder App und Gerät
+- Zählertyp, Quellenmodus und Leistungseinheit
+- Rohwerte der betroffenen Variablen mit Zeitstempel
+- Erwartete und tatsächliche Anzeige, am besten mit Screenshot
